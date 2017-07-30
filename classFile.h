@@ -1,14 +1,14 @@
 #import <ObjFW/ObjFW.h>
 
-enum {
+enum{
     CONSTANT_Class = 7,
     CONSTANT_Fieldref =	9,
-    CONSTANT_Methodref= 10,
+    CONSTANT_Methodref = 10,
     CONSTANT_InterfaceMethodref = 11,
     CONSTANT_String = 8,
     CONSTANT_Integer = 3,
     CONSTANT_Float = 4,
-    CONSTANT_Long =	5,
+    CONSTANT_Long = 5,
     CONSTANT_Double = 6,
     CONSTANT_NameAndType = 12,
     CONSTANT_Utf8 =	1,
@@ -17,36 +17,29 @@ enum {
     CONSTANT_InvokeDynamic = 18,
 };
 
-@interface AttributeInfo: OFObject
-{
-    @public
-    uint16_t name_index;
-    uint32_t length;
-    OFData* info;
+enum {
+    ACC_PUBLIC = 0x0001,
+    ACC_PRIVATE = 0x0002,
+    ACC_PROTECTED = 0x0004,
+    ACC_STATIC = 0x0008,
+    ACC_FINAL = 0x0010,
+    ACC_SYNCHRONIZED_SUPER = 0x0020,
+    ACC_VOLATILE = 0x0040,
+    ACC_TRANSIENT = 0x0080,
+    ACC_BRIDGE = 0x0040,
+    ACC_VARARGS = 0x0080,
+    ACC_NATIVE = 0x0100,
+    ACC_ABSTRACT = 0x0400,
+    ACC_STRICT = 0x0800,
+    ACC_SYNTHETIC = 0x1000,
 };
-@end
 
-@interface MethodInfo: OFObject
-{
-    @public
-    uint16_t access_flags;
-    uint16_t name_index;
-    uint16_t descriptor_index;
-    uint16_t attributes_count;
-    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
-};
-@end
-
-@interface FieldInfo: OFObject
-{
-    @public
-    uint16_t access_flags;
-    uint16_t name_index;
-    uint16_t descriptor_index;
-    uint16_t attributes_count;
-    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
-};
-@end
+typedef enum __attr_type{
+    ATTR_CODE,
+    ATTR_SOURCEFILE,
+    ATTR_CONSTVAL,
+    ATTR_UNKNOWN,
+} attr_type;
 
 typedef struct __CONSTANT_Class_info{
     uint16_t name_index;
@@ -137,6 +130,66 @@ typedef union __ConstantInfo{
 };
 @end
 
+// generic Attribute info class
+@interface AttributeInfo: OFObject
+{
+    @public
+    uint16_t name_index;
+    uint32_t length;
+    attr_type type;
+    OFData* info;
+};
++ (instancetype) attributeWithStream: (OFStream *)stream;
+- initWithStream: (OFStream *)stream;
+@end
+
+@interface ExceptionTable: OFObject
+{
+    @public
+	uint16_t start_pc;
+	uint16_t end_pc;
+    uint16_t handler_pc;
+    uint16_t catch_type;
+};
+@end
+
+@interface CodeAttribute: OFObject
+{
+	uint16_t max_stack;
+	uint16_t max_locals;
+	uint32_t code_length;
+	OFData* code;
+	uint16_t exception_table_length;
+	OFMutableArray OF_GENERIC(ExceptionTable*)* exception_table;
+	uint16_t attributes_count;
+	OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
+};
++ (instancetype) attributeWithInfo:(OFData *) info;
+- initWithInfo: (OFData *) info;
+@end
+
+@interface MethodInfo: OFObject
+{
+    @public
+    uint16_t access_flags;
+    uint16_t name_index;
+    uint16_t descriptor_index;
+    uint16_t attributes_count;
+    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
+};
+@end
+
+@interface FieldInfo: OFObject
+{
+    @public
+    uint16_t access_flags;
+    uint16_t name_index;
+    uint16_t descriptor_index;
+    uint16_t attributes_count;
+    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
+};
+@end
+
 @interface ClassFile: OFObject
 {
     @public
@@ -151,7 +204,7 @@ typedef union __ConstantInfo{
     uint16_t interfaces_count;
     OFData* interfaces;
     uint16_t fields_count;
-    OFMutableArray* fields;
+    OFMutableArray OF_GENERIC(FieldInfo*)* fields;
     uint16_t methods_count;
     OFMutableArray OF_GENERIC(MethodInfo*)* methods;
     uint16_t attributes_count;

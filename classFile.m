@@ -1,17 +1,9 @@
 #import "classFile.h"
 
-@implementation AttributeInfo
-@end
-
-@implementation MethodInfo
-@end
-
-@implementation FieldInfo
-@end
-
-@implementation ConstantpoolInfo
-@end
-
+@implementation MethodInfo @end
+@implementation FieldInfo @end
+@implementation ConstantpoolInfo @end
+@implementation ExceptionTable @end
 
 @implementation ClassFile
 + (instancetype) classFileWithPath: (OFString *)path
@@ -36,7 +28,7 @@
     [of_stdout writeFormat: @"Constantpool: %d entries\n", constant_pool_count];
     [constant_pool initWithCapacity: constant_pool_count-1];
     for(int i = 1; i < constant_pool_count; i++){
-        [of_stdout writeFormat: @"\t[%d]: ", i];
+        [of_stdout writeFormat: @"\t[%02d]: ", i];
         ConstantpoolInfo* cp = [ConstantpoolInfo alloc];
         cp->tag = [f readInt8];
         switch(cp->tag){
@@ -106,9 +98,6 @@
                 cp->info.utf8Info.value = [f readStringWithLength: cp->info.utf8Info.length
                                                          encoding: OF_STRING_ENCODING_UTF_8 ];
 
-                if([cp->info.utf8Info.value isEqual: @"Code"]){
-                    cp->codeTag = i;
-                }
                 [of_stdout writeFormat:@"UTF8: "];
                 [of_stdout writeString: cp->info.utf8Info.value];
                 break;
@@ -165,16 +154,16 @@
             fi->name_index,
             fi->descriptor_index,
             fi->attributes_count];
-
+        [of_stdout writeFormat: @"\tAttributes: %d entries\n", fi->attributes_count];
         fi->attributes = [[OFMutableArray alloc] initWithCapacity: fi->attributes_count];
         for(int j = 0; j < fi->attributes_count; j++)
         {
-            [of_stdout writeFormat: @"\t\t[%d]: ", j];
-            AttributeInfo* attr = [[AttributeInfo alloc] init];
-            attr->name_index = [f readBigEndianInt16];
-            attr->length = [f readBigEndianInt32];
-            attr->info = [f readDataWithCount: attr->length];
-            [of_stdout writeFormat: @"name_index: %d\tlength: %d\n", attr->name_index, attr->length];
+            AttributeInfo* attr = [[AttributeInfo alloc] initWithStream: f];
+            [of_stdout writeFormat: @"\t\t[%d]: name_index: %d\t"
+                                                    "length: %d\n", 
+                                                    j, 
+                                                    attr->name_index, 
+                                                    attr->length];
             [fi->attributes insertObject: attr atIndex: j];
         }
     }
@@ -197,14 +186,14 @@
             mi->name_index,
             mi->descriptor_index,
             mi->attributes_count];
+        [of_stdout writeFormat: @"\tAttributes: %d entries\n", mi->attributes_count];
         mi->attributes = [[OFMutableArray alloc] initWithCapacity: mi->attributes_count];
         for(int j = 0; j < mi->attributes_count; j++)
         {
-            AttributeInfo* attr = [[AttributeInfo alloc] init];
-            attr->name_index = [f readBigEndianInt16];
-            attr->length = [f readBigEndianInt32];
+            AttributeInfo* attr = [[AttributeInfo alloc] initWithStream: f];
             [of_stdout writeFormat: @"\t\t[%d]: name_index: %d\tlength: %d\n", j, attr->name_index, attr->length];
-            attr->info = [f readDataWithCount: attr->length];
+            if(attr->name_index == 21   )
+                [CodeAttribute attributeWithInfo:attr->info];
             [mi->attributes insertObject: attr atIndex: j];
         }
     }
@@ -213,13 +202,109 @@
     attributes = [[OFMutableArray alloc] initWithCapacity: attributes_count];
     for(int i = 0; i < attributes_count; i++)
 	{
-		AttributeInfo* attr = [[AttributeInfo alloc] init];
-		attr->name_index = [f readBigEndianInt16];
-		attr->length = [f readBigEndianInt32];
-		attr->info = [f readDataWithCount: attr->length];
-        [of_stdout writeFormat: @"\t[%d]: name_index: %d\tlength: %d\n", i, attr->name_index, attr->length];
+		AttributeInfo* attr = [[AttributeInfo alloc] initWithStream: f];
+        [of_stdout writeFormat: @"\t[%d]: name_index: %d\t"
+                                            "length: %d\n", 
+                                            i, 
+                                            attr->name_index, 
+                                            attr->length];
         [attributes insertObject: attr atIndex: i];
 	}
     return self;
 }
 @end    
+
+@implementation AttributeInfo
+
++ (instancetype) attributeWithStream: (OFStream *)stream
+{
+    return [[[self alloc] initWithStream: stream] autorelease];
+}
+
+- initWithStream: (OFStream *)stream
+{
+    self = [super init];
+    name_index = [stream readBigEndianInt16];
+	length = [stream readBigEndianInt32];
+    info = [stream readDataWithCount: length];
+    return self;
+}
+@end
+
+uint16_t dataToUint16(OFData* data, ssize_t* index){
+    uint16_t res = *((uint8_t*)[data itemAtIndex: *index+0]) << 8 
+                 | *((uint8_t*)[data itemAtIndex: *index+1]) << 0;
+    *index += 2;
+    OF_BSWAP16_IF_LE(res);
+    return res;
+}
+
+uint32_t dataToUint32(OFData* data, ssize_t* index){
+    uint16_t res = *((uint8_t*)[data itemAtIndex: *index+0]) << 24 
+                 | *((uint8_t*)[data itemAtIndex: *index+1]) << 16
+                 | *((uint8_t*)[data itemAtIndex: *index+2]) << 8
+                 | *((uint8_t*)[data itemAtIndex: *index+3]) << 0;
+    *index += 4;
+    OF_BSWAP32_IF_LE(res);
+    return res;
+}
+
+OFData* dataToData(OFData* org, ssize_t* index, ssize_t count){
+    uint8_t* items =(uint8_t*) [org items];
+    uint8_t* new = &items[*index];
+    OFData* ret = [[OFData alloc] initWithItems:new count:count];
+    *index += count;
+    return ret;
+}
+
+@implementation CodeAttribute
++ (instancetype) attributeWithInfo:(OFData *) info{
+    return [[[self alloc] initWithInfo: info] autorelease];
+}
+- initWithInfo: (OFData *) info{
+    self = [super init];
+    ssize_t index = 0;
+    max_stack = dataToUint16(info, &index);
+    [of_stdout writeFormat:@"\t\t\tMaxStack: %d\n", max_stack];
+    max_locals = dataToUint16(info, &index);
+    [of_stdout writeFormat:@"\t\t\tMaxLocals: %d\n", max_locals];
+    code_length = dataToUint32(info, &index);
+    [of_stdout writeFormat:@"\t\t\tCodeLength: %d\n", code_length];
+    code =  dataToData(info, &index, code_length);
+    exception_table_length = dataToUint16(info, &index);
+    [of_stdout writeFormat: @"\t\t\tExceptions: %d entries\n", exception_table_length];
+    exception_table = [[OFMutableArray alloc] initWithCapacity: exception_table_length];
+    for(int i = 0; i < exception_table_length; i++){
+        ExceptionTable* extbl = [[ExceptionTable alloc] init];
+        extbl->start_pc = dataToUint16(info, &index);
+        extbl->end_pc = dataToUint16(info, &index);
+        extbl->handler_pc = dataToUint16(info, &index);
+        extbl->catch_type = dataToUint16(info, &index);
+        [of_stdout writeFormat: @"\t\t\tStartPC: 0x%x\t"
+                                    "EndPC: 0x%x\t"
+                                    "HandlerPC: 0x%x\t"
+                                    "CatchType: %d\n",
+                            extbl->start_pc,
+                            extbl->end_pc,
+                            extbl->handler_pc,
+                            extbl->catch_type];
+    }
+    attributes_count = dataToUint16(info, &index);
+    [of_stdout writeFormat: @"\t\t\tAttributes: %d entries\n", attributes_count];
+    attributes = [[OFMutableArray alloc] initWithCapacity: attributes_count];
+    for(int i = 0; i < attributes_count; i++)
+        {
+            AttributeInfo* attr = [[AttributeInfo alloc] init];
+            attr->name_index =  dataToUint16(info, &index);
+            attr->length = dataToUint32(info, &index);
+            attr->info = dataToData(info, &index, attr->length);
+            [of_stdout writeFormat: @"\t\t\t\t[%d]: name_index: %d\t"
+                                                "length: %d\n",
+                i, 
+                attr->name_index, 
+                attr->length];
+            [attributes insertObject: attr atIndex: i];
+        }
+    return self;
+}
+@end
