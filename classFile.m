@@ -169,7 +169,7 @@
         fi->attributes = [[OFMutableArray alloc] initWithCapacity: fi->attributes_count];
         for(int j = 0; j < fi->attributes_count; j++)
         {
-            [of_stdout writeFormat: @"\t\[%d]: ", j];
+            [of_stdout writeFormat: @"\t\t[%d]: ", j];
             AttributeInfo* attr = [[AttributeInfo alloc] init];
             attr->name_index = [f readBigEndianInt16];
             attr->length = [f readBigEndianInt32];
