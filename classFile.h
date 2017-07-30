@@ -33,7 +33,7 @@ enum {
     uint16_t name_index;
     uint16_t descriptor_index;
     uint16_t attributes_count;
-    OFMutableArray* attributes;
+    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
 };
 @end
 
@@ -44,7 +44,7 @@ enum {
     uint16_t name_index;
     uint16_t descriptor_index;
     uint16_t attributes_count;
-    OFMutableArray* attributes; 
+    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
 };
 @end
 
@@ -133,6 +133,7 @@ typedef union __ConstantInfo{
     @public
     uint8_t tag;
     ConstantInfo info;
+    int32_t codeTag;
 };
 @end
 
@@ -143,20 +144,20 @@ typedef union __ConstantInfo{
     uint16_t minor_version;
     uint16_t major_version;
     uint16_t constant_pool_count;
-    OFMutableArray* constant_pool;
+    OFMutableArray OF_GENERIC(ConstantpoolInfo*)* constant_pool;
     uint16_t access_flags;
     uint16_t this_class;
     uint16_t super_class;
     uint16_t interfaces_count;
-    uint16_t* interfaces;
+    OFData* interfaces;
     uint16_t fields_count;
     OFMutableArray* fields;
     uint16_t methods_count;
-    OFMutableArray* methods;
+    OFMutableArray OF_GENERIC(MethodInfo*)* methods;
     uint16_t attributes_count;
-    OFMutableArray* attributes;
+    OFMutableArray OF_GENERIC(AttributeInfo*)* attributes;
 };
 + (instancetype) classFileWithPath: (OFString *)path;
--initWithPath: (OFString *)path;
+- initWithPath: (OFString *)path;
 @end
 
